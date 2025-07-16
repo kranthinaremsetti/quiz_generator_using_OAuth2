@@ -3,6 +3,7 @@
 import os
 import pickle
 import streamlit as st
+import tempfile
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
@@ -14,8 +15,19 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.file'
 ]
 
+
 TOKEN_PATH = os.path.abspath('google_oauth_token.pickle')
-CREDENTIALS_PATH = os.path.abspath('credentials.json')
+
+# Helper to get credentials path (local or from Streamlit secrets)
+def get_credentials_path():
+    # If running on Streamlit Cloud, use secrets
+    if "CREDENTIALS_JSON" in st.secrets:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+        tmp.write(st.secrets["CREDENTIALS_JSON"].encode())
+        tmp.close()
+        return tmp.name
+    # Local dev: use credentials.json
+    return os.path.abspath('credentials.json')
 
 def load_saved_credentials():
     if os.path.exists(TOKEN_PATH):
@@ -43,10 +55,11 @@ def clear_saved_credentials():
         st.success("✅ Logged out successfully!")
 
 def authenticate_oauth():
-    if not os.path.exists(CREDENTIALS_PATH):
+    credentials_path = get_credentials_path()
+    if not os.path.exists(credentials_path):
         st.error("❌ credentials.json not found. Please ensure you have OAuth2 credentials set up.")
         st.stop()
-    flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
+    flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
     creds = flow.run_local_server(port=8000)
     save_credentials(creds)
     st.success("✅ Authentication successful!")
