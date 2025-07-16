@@ -60,7 +60,10 @@ def authenticate_oauth():
         st.error("❌ credentials.json not found. Please ensure you have OAuth2 credentials set up.")
         st.stop()
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-    creds = flow.run_local_server(port=8000)
+    if "CREDENTIALS_JSON" in st.secrets:
+        creds = flow.run_console()
+    else:
+        creds = flow.run_local_server(port=8000)
     save_credentials(creds)
     st.success("✅ Authentication successful!")
     st.rerun()
