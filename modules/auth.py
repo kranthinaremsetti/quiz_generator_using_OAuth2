@@ -72,6 +72,7 @@ def authenticate_oauth():
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
     if is_streamlit_cloud:
         # Manual OAuth for Streamlit Cloud: show URL, get code from user
+        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
         auth_url, _ = flow.authorization_url(prompt='consent')
         st.info('Please [authorize with Google](%s) in a new tab.' % auth_url)
         code = st.text_input('Paste the authorization code here:')
