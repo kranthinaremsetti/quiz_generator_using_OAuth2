@@ -71,20 +71,29 @@ def authenticate_oauth():
     is_streamlit_cloud = 'CREDENTIALS_JSON' in os.environ
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
     if is_streamlit_cloud:
-        # Use the deployed Streamlit Cloud URL as redirect_uri
-        creds = flow.run_local_server(
-            port=8501,
-            redirect_uri='https://quizgeneratormethod2.streamlit.app/',
-            authorization_prompt_message='Please visit this URL to authorize:',
-            success_message='Authentication complete. You may close this window.'
-        )
+        # Manual OAuth for Streamlit Cloud: show URL, get code from user
+        auth_url, _ = flow.authorization_url(prompt='consent')
+        st.info('Please [authorize with Google](%s) in a new tab.' % auth_url)
+        code = st.text_input('Paste the authorization code here:')
+        if st.button('Submit code'):
+            try:
+                flow.fetch_token(code=code)
+                creds = flow.credentials
+                save_credentials(creds)
+                st.success('✅ Authentication successful!')
+                st.rerun()
+                return creds
+            except Exception as e:
+                st.error(f'❌ Authentication failed: {e}')
+                st.stop()
+        st.stop()
     else:
         # Local development
         creds = flow.run_local_server(port=8000)
-    save_credentials(creds)
-    st.success("✅ Authentication successful!")
-    st.rerun()
-    return creds
+        save_credentials(creds)
+        st.success("✅ Authentication successful!")
+        st.rerun()
+        return creds
 
 def setup_services():
     creds = load_saved_credentials()
