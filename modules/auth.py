@@ -20,14 +20,21 @@ TOKEN_PATH = os.path.abspath('google_oauth_token.pickle')
 
 # Helper to get credentials path (local or from Streamlit secrets)
 def get_credentials_path():
-    # If running on Streamlit Cloud, use secrets
-    if "CREDENTIALS_JSON" in st.secrets:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-        tmp.write(st.secrets["CREDENTIALS_JSON"].encode())
-        tmp.close()
-        return tmp.name
-    # Local dev: use credentials.json
-    return os.path.abspath('credentials.json')
+    # Check if running on Cloud Run (credentials from Secret Manager)
+    if os.path.exists('/app/credentials/credentials.json'):
+        return '/app/credentials/credentials.json'
+    
+    # Check if credentials are in environment variable (from Secret Manager)
+    if 'CREDENTIALS_JSON' in os.environ:
+        # Write the credentials to a temporary file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(os.environ['CREDENTIALS_JSON'])
+            return f.name
+    
+    # Fall back to local credentials.json in project root (one level up from this file)
+    local_path = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
+    local_path = os.path.abspath(local_path)
+    return local_path
 
 def load_saved_credentials():
     if os.path.exists(TOKEN_PATH):
@@ -59,10 +66,20 @@ def authenticate_oauth():
     if not os.path.exists(credentials_path):
         st.error("❌ credentials.json not found. Please ensure you have OAuth2 credentials set up.")
         st.stop()
+    
+    # Detect if running on Streamlit Cloud (CREDENTIALS_JSON in env)
+    is_streamlit_cloud = 'CREDENTIALS_JSON' in os.environ
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-    if "CREDENTIALS_JSON" in st.secrets:
-        creds = flow.run_console()
+    if is_streamlit_cloud:
+        # Use the deployed Streamlit Cloud URL as redirect_uri
+        creds = flow.run_local_server(
+            port=8501,
+            redirect_uri='https://quizgeneratormethod2.streamlit.app/',
+            authorization_prompt_message='Please visit this URL to authorize:',
+            success_message='Authentication complete. You may close this window.'
+        )
     else:
+        # Local development
         creds = flow.run_local_server(port=8000)
     save_credentials(creds)
     st.success("✅ Authentication successful!")

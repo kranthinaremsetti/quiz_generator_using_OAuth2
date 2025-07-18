@@ -3,15 +3,15 @@ from email.mime.text import MIMEText
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (only in local development)
+if os.path.exists('.env'):
+    load_dotenv()
 
 # Required environment variables
 REQUIRED_KEYS = [
     "PGHOST", "PGUSER", "PGDATABASE", "PGSSLMODE", "PGPASSWORD",
     "GEMINI_API_KEY", "EMAIL", "EMAIL_PASSWORD"
 ]
-
 
 # Load secrets from environment variables
 secrets = {}
