@@ -80,15 +80,15 @@ def authenticate_oauth():
         flow.redirect_uri = "https://quizgeneratormethod2.streamlit.app/"
         
         # Check for authorization code in URL parameters first
-        query_params = st.experimental_get_query_params()
+        query_params = st.query_params
         if 'code' in query_params:
             try:
-                code = query_params['code'][0]
+                code = query_params['code']
                 flow.fetch_token(code=code)
                 creds = flow.credentials
                 save_credentials(creds)
                 # Clear the code from URL
-                st.experimental_set_query_params()
+                del st.query_params['code']
                 st.success("✅ Authentication successful! Redirecting...")
                 # Force a rerun to refresh the entire app state
                 time.sleep(1)  # Brief pause to show success message
@@ -96,20 +96,22 @@ def authenticate_oauth():
                 return creds
             except Exception as e:
                 st.error(f"❌ Authentication failed: {e}")
-                st.experimental_set_query_params()
+                if 'code' in st.query_params:
+                    del st.query_params['code']
                 st.stop()
         else:
             # Generate authorization URL and redirect user
             auth_url, _ = flow.authorization_url(prompt='consent')
-            st.markdown("### 🔐 Redirecting to Google for authorization...")
-            st.markdown("If you're not automatically redirected, click the link below:")
-            st.markdown(f"[Authorize with Google]({auth_url})")
-            # Use JavaScript to redirect automatically
-            st.markdown(f"""
-            <script>
-                window.location.href = "{auth_url}";
-            </script>
-            """, unsafe_allow_html=True)
+            st.markdown("### 🔐 Google Authorization Required")
+            st.markdown("Click the button below to authorize with Google:")
+            
+            # Use a button that opens in the same tab
+            if st.button("🔑 Authorize with Google", type="primary", use_container_width=True):
+                st.markdown(f"""
+                <script>
+                    window.location.href = "{auth_url}";
+                </script>
+                """, unsafe_allow_html=True)
         st.stop()
     else:
         # Local development - use local server

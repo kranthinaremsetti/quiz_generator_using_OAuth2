@@ -49,7 +49,7 @@ st.set_page_config("Smart Quiz Generator")
 st.sidebar.markdown("## 🔐 Authentication Status")
 
 # Check for OAuth callback code in URL first
-query_params = st.experimental_get_query_params()
+query_params = st.query_params
 if 'code' in query_params:
     # We're being redirected back from Google OAuth
     st.sidebar.info("🔄 Processing Google authorization...")
