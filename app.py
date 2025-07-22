@@ -48,6 +48,12 @@ st.set_page_config("Smart Quiz Generator")
 # --- Authentication Panel ---
 st.sidebar.markdown("## 🔐 Authentication Status")
 
+# Check for OAuth callback code in URL first
+query_params = st.experimental_get_query_params()
+if 'code' in query_params:
+    # We're being redirected back from Google OAuth
+    st.sidebar.info("🔄 Processing Google authorization...")
+
 credentials = load_saved_credentials()
 
 if credentials and credentials.valid:
@@ -59,16 +65,23 @@ if credentials and credentials.valid:
         clear_saved_credentials()
         st.rerun()
 else:
-    st.sidebar.warning("🔐 Not authenticated. Please log in to use Google Forms.")
-    if st.sidebar.button("🔑 Login with Google", type="primary"):
+    # Check if we're in the middle of OAuth flow
+    if 'code' in query_params:
+        # Process the OAuth callback
         authenticate_oauth()
+    else:
+        st.sidebar.warning("🔐 Not authenticated. Please log in to use Google Forms.")
+        if st.sidebar.button("🔑 Login with Google", type="primary"):
+            authenticate_oauth()
 
 st.sidebar.markdown("---")
 
 # Main panel: show welcome if not authenticated, else show app
 if not credentials or not credentials.valid:
-    st.title("🧠 Smart Quiz Generator")
-    st.info("Welcome! Please log in with Google using the sidebar to access the quiz generator features.")
+    # Don't show the welcome message if we're processing OAuth
+    if 'code' not in query_params:
+        st.title("🧠 Smart Quiz Generator")
+        st.info("Welcome! Please log in with Google using the sidebar to access the quiz generator features.")
     st.stop()
 
 st.title("🧠 Smart Quiz Generator")

@@ -4,16 +4,10 @@ import os
 import pickle
 import streamlit as st
 import tempfile
+import time
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
-
-SCOPES = [
-    'https://www.googleapis.com/auth/forms.body',
-    'https://www.googleapis.com/auth/forms.responses.readonly',
-    'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive.file'
-]
 
 SCOPES = [
     'https://www.googleapis.com/auth/forms.body',
@@ -93,14 +87,17 @@ def authenticate_oauth():
                 flow.fetch_token(code=code)
                 creds = flow.credentials
                 save_credentials(creds)
-                st.success("✅ Authentication successful!")
                 # Clear the code from URL
                 st.experimental_set_query_params()
+                st.success("✅ Authentication successful! Redirecting...")
+                # Force a rerun to refresh the entire app state
+                time.sleep(1)  # Brief pause to show success message
                 st.rerun()
                 return creds
             except Exception as e:
                 st.error(f"❌ Authentication failed: {e}")
                 st.experimental_set_query_params()
+                st.stop()
         else:
             # Generate authorization URL and redirect user
             auth_url, _ = flow.authorization_url(prompt='consent')
