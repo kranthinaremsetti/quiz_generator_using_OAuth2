@@ -82,14 +82,10 @@ def authenticate_oauth():
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
     
     if is_streamlit_cloud:
-        # For Streamlit Cloud, display the authorization URL as a clickable link
-        auth_url, _ = flow.authorization_url(prompt='consent')
-        st.markdown(f"### 🔐 Google Authorization Required")
-        st.markdown(f"Please click the link below to authorize with Google:")
-        st.markdown(f"👉 [**Authorize with Google**]({auth_url})")
-        st.info("After authorization, the page will redirect and you may see an error page. That's normal - just come back to this app and refresh the page.")
+        # Set redirect URI to the Streamlit Cloud app URL
+        flow.redirect_uri = "https://quizgeneratormethod2.streamlit.app/"
         
-        # Check for authorization code in URL parameters
+        # Check for authorization code in URL parameters first
         query_params = st.experimental_get_query_params()
         if 'code' in query_params:
             try:
@@ -105,6 +101,18 @@ def authenticate_oauth():
             except Exception as e:
                 st.error(f"❌ Authentication failed: {e}")
                 st.experimental_set_query_params()
+        else:
+            # Generate authorization URL and redirect user
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            st.markdown("### 🔐 Redirecting to Google for authorization...")
+            st.markdown("If you're not automatically redirected, click the link below:")
+            st.markdown(f"[Authorize with Google]({auth_url})")
+            # Use JavaScript to redirect automatically
+            st.markdown(f"""
+            <script>
+                window.location.href = "{auth_url}";
+            </script>
+            """, unsafe_allow_html=True)
         st.stop()
     else:
         # Local development - use local server
