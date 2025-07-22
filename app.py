@@ -37,7 +37,7 @@ from pydub import AudioSegment
 import io
 import tempfile
 import psycopg2
-from modules.auth import setup_services, clear_saved_credentials, get_current_user_info, load_saved_credentials, authenticate_oauth
+from modules.auth import setup_services, get_current_user_info
 from modules.file_processor import parse_topic_from_files
 from modules.quiz_generator import generate_quiz
 from modules.forms_manager import create_quiz_form
@@ -45,36 +45,13 @@ from insert_quiz import insert_quiz
 
 st.set_page_config("Smart Quiz Generator")
 
-
-
-
-# --- Authentication Panel ---
-st.sidebar.markdown("## 🔐 Authentication Status")
-
-credentials = load_saved_credentials()
-
-if credentials and credentials.valid:
-    user_info = get_current_user_info(credentials)
-    user_name = user_info.get('displayName', 'User')
-    user_email = user_info.get('emailAddress', 'Unknown')
-    st.sidebar.success(f"✅ **Authenticated as:**\n{user_name}\n{user_email}")
-    if st.sidebar.button("🚪 Logout"):
-        clear_saved_credentials()
-        st.rerun()
-else:
-    st.sidebar.warning("🔐 Not authenticated. Please log in to use Google Forms.")
-    if st.sidebar.button("🔑 Login with Google", type="primary"):
-        authenticate_oauth()
-
-st.sidebar.markdown("---")
-
-# Main panel: show welcome if not authenticated, else show app
-if not credentials or not credentials.valid:
-    st.title("🧠 Smart Quiz Generator")
-    st.info("Welcome! Please log in with Google using the sidebar to access the quiz generator features.")
+# Initialize services at startup
+try:
+    services = setup_services()
+    st.success("✅ Google Services initialized successfully!")
+except Exception as e:
+    st.error(f"❌ Failed to initialize Google Services: {e}")
     st.stop()
-
-    
 
 st.title("🧠 Smart Quiz Generator")
 
