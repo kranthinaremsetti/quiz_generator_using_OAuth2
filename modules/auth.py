@@ -105,13 +105,15 @@ def authenticate_oauth():
             st.markdown("### 🔐 Google Authorization Required")
             st.markdown("Click the button below to authorize with Google:")
             
-            # Use a button that opens in the same tab
-            if st.button("🔑 Authorize with Google", type="primary", use_container_width=True):
-                st.markdown(f"""
-                <script>
-                    window.location.href = "{auth_url}";
-                </script>
-                """, unsafe_allow_html=True)
+            # Use st.link_button for direct navigation
+            st.link_button(
+                "🔑 Authorize with Google", 
+                auth_url, 
+                type="primary", 
+                use_container_width=True
+            )
+            
+            st.info("After authorization, you'll be redirected back to this app automatically.")
         st.stop()
     else:
         # Local development - use local server
