@@ -1,6 +1,7 @@
 import re
 import streamlit as st
 
+
 def generate_fib_variants(answer: str) -> list:
     """
     Generate different variants of fill-in-the-blank answers to handle
@@ -22,6 +23,7 @@ def generate_fib_variants(answer: str) -> list:
         base, with_spaces, capitalized, lower, upper, no_spaces,
         base.replace(" ,", ",").replace(", ", ",")
     ]))
+
 
 def create_quiz_form(forms_service, drive_service, quiz, educator_emails, form_title):
     """
@@ -118,19 +120,91 @@ def create_quiz_form(forms_service, drive_service, quiz, educator_emails, form_t
         })
         idx += 1
 
-    forms_service.forms().batchUpdate(formId=form_id, body={"requests": requests}).execute()
+    response = forms_service.forms().batchUpdate(formId=form_id, body={"requests": requests}).execute()
 
-    # Share form with educator emails
+    item_ids = [r["createItem"]["itemId"] for r in response.get("replies", []) if "createItem" in r]
+
+    # Grading requests
+    grading_requests = []
+    mcqs = quiz.get("mcq", [])
+    fills = quiz.get("fill", [])
+
+    for i, q in enumerate(mcqs):
+        correct = q.get("answer", "").strip()
+        if not correct:
+            continue
+        grading_requests.append({
+            "updateItem": {
+                "item": {
+                    "itemId": item_ids[i + 1],
+                    "questionItem": {
+                        "question": {
+                            "grading": {
+                                "pointValue": 1,
+                                "correctAnswers": {
+                                    "answers": [{"value": correct}]
+                                }
+                            }
+                        }
+                    }
+                },
+                "location": {"index": i + 1},
+                "updateMask": "questionItem.question.grading"
+            }
+        })
+
+    for j, q in enumerate(fills):
+        correct = q.get("answer", "").strip()
+        if not correct:
+            continue
+        variants = generate_fib_variants(correct)
+        grading_requests.append({
+            "updateItem": {
+                "item": {
+                    "itemId": item_ids[len(mcqs) + j + 1],
+                    "questionItem": {
+                        "question": {
+                            "grading": {
+                                "pointValue": 1,
+                                "correctAnswers": {
+                                    "answers": [{"value": variant} for variant in variants]
+                                }
+                            }
+                        }
+                    }
+                },
+                "location": {"index": len(mcqs) + j + 1},
+                "updateMask": "questionItem.question.grading"
+            }
+        })
+
+    if grading_requests:
+        forms_service.forms().batchUpdate(formId=form_id, body={"requests": grading_requests}).execute()
+
+    # Share form with educators
+    granted = []
+    failed = []
+
     for email in educator_emails:
-        drive_service.permissions().create(
-            fileId=form_id,
-            body={
-                "type": "user",
-                "role": "writer",
-                "emailAddress": email
-            },
-            fields="id"
-        ).execute()
+        try:
+            drive_service.permissions().create(
+                fileId=form_id,
+                body={"type": "user", "role": "writer", "emailAddress": email},
+                sendNotificationEmail=True,
+                fields='id'
+            ).execute()
+            granted.append(email)
+        except Exception as e:
+            failed.append(email)
+            st.warning(f"❌ Failed to grant edit access to {email}: {e}")
 
-    form_url = f"https://docs.google.com/forms/d/{form_id}/edit"
-    return form_url
+    if granted:
+        st.info(f"✅ Editor access granted to: {', '.join(granted)}")
+    if failed and not granted:
+        st.error("❌ Failed to grant access to all provided emails.")
+
+    # ✅ Print only once
+    st.success("✅ Quiz Form Created with Auto-Grading!")
+    st.markdown(f"[📝 Open Form](https://docs.google.com/forms/d/{form_id}/edit)")
+    st.info("ℹ️ To collect student emails, open the form in Google Forms and enable 'Collect email addresses' in the Responses settings.")
+    return f"https://docs.google.com/forms/d/{form_id}/edit"
