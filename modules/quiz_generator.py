@@ -40,6 +40,13 @@ def generate_quiz(topic, api_key, num_mcq=5, num_fill=2, difficulty="Medium"):
 
         Make sure all questions are of **{difficulty}** difficulty level.
 
+        Quality rules:
+        - Avoid duplicate or near-duplicate questions.
+        - Each MCQ must have exactly one unambiguous correct answer.
+        - Do not reuse the same answer option order repeatedly.
+        - Keep questions concise, exam-ready, and directly supported by the source material.
+        - Ensure the fill-in-the-blank answers are specific and short.
+
         ENSURE BALANCED COVERAGE: If multiple files/sections are provided, create questions from each section and the user prompt proportionally.
 
         Content from multiple sources:

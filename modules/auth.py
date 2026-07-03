@@ -16,6 +16,17 @@ SCOPES = [
 
 TOKEN_PATH = os.path.abspath('google_oauth_token.pickle')
 
+def get_redirect_uri():
+    """Resolve OAuth redirect URI from secrets/env, or default to local Streamlit URL."""
+    if hasattr(st, 'secrets') and 'REDIRECT_URI' in st.secrets:
+        return str(st.secrets['REDIRECT_URI']).strip()
+
+    if 'REDIRECT_URI' in os.environ:
+        return os.environ['REDIRECT_URI'].strip()
+
+    port = st.get_option("server.port") or 8501
+    return f"http://localhost:{port}"
+
 # Helper to get credentials path (local or from Streamlit secrets)
 def get_credentials_path():
     # Check if credentials are in Streamlit secrets
@@ -32,7 +43,7 @@ def get_credentials_path():
             f.write(os.environ['CREDENTIALS_JSON'])
             return f.name
     
-    # Fall back to local credentials.json in project root
+    # Fall back to local credentials.json path in project root for local development
     local_path = os.path.join(os.path.dirname(__file__), '..', 'credentials.json')
     local_path = os.path.abspath(local_path)
     return local_path
@@ -67,59 +78,41 @@ def authenticate_oauth():
     if not os.path.exists(credentials_path):
         st.error("❌ credentials.json not found. Please ensure you have OAuth2 credentials set up.")
         st.stop()
-    
-    # Check if running on Streamlit Cloud
-    is_streamlit_cloud = hasattr(st, 'secrets') and 'CREDENTIALS_JSON' in st.secrets
-    
+
     flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
-    
-    if is_streamlit_cloud:
-        # Set redirect URI to the Streamlit Cloud app URL
-        flow.redirect_uri = "https://quizgeneratormethod2.streamlit.app/"
-        
-        # Check for authorization code in URL parameters first
-        query_params = st.query_params
-        if 'code' in query_params:
-            try:
-                code = query_params['code']
-                flow.fetch_token(code=code)
-                creds = flow.credentials
-                save_credentials(creds)
-                # Clear the code from URL
+    flow.redirect_uri = get_redirect_uri()
+
+    query_params = st.query_params
+    if 'code' in query_params:
+        try:
+            code = query_params['code']
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+            save_credentials(creds)
+            if 'code' in st.query_params:
                 del st.query_params['code']
-                st.success("✅ Authentication successful! Redirecting...")
-                # Force a rerun to refresh the entire app state
-                time.sleep(1)  # Brief pause to show success message
-                st.rerun()
-                return creds
-            except Exception as e:
-                st.error(f"❌ Authentication failed: {e}")
-                if 'code' in st.query_params:
-                    del st.query_params['code']
-                st.stop()
-        else:
-            # Generate authorization URL and redirect user
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            st.markdown("### 🔐 Google Authorization Required")
-            st.markdown("Click the button below to authorize with Google:")
-            
-            # Use st.link_button for direct navigation
-            st.link_button(
-                "🔑 Authorize with Google", 
-                auth_url, 
-                type="primary", 
-                use_container_width=True
-            )
-            
-            st.info("After authorization, you'll be redirected back to this app automatically.")
-        st.stop()
-    else:
-        # Local development - use local server
-        creds = flow.run_local_server(port=8000)
-        save_credentials(creds)
-        st.success("✅ Authentication successful!")
-        st.rerun()
-        return creds
+            st.success("✅ Authentication successful! Redirecting...")
+            time.sleep(1)
+            st.rerun()
+            return creds
+        except Exception as e:
+            st.error(f"❌ Authentication failed: {e}")
+            if 'code' in st.query_params:
+                del st.query_params['code']
+            st.stop()
+
+    auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
+    st.markdown("### 🔐 Google Authorization Required")
+    st.markdown("Click the button below to authorize with Google:")
+    st.link_button(
+        "🔑 Authorize with Google",
+        auth_url,
+        type="primary",
+        use_container_width=True
+    )
+    st.info(f"Authorized redirect URI in use: {flow.redirect_uri}")
+    st.info("After authorization, you'll be redirected back to this app automatically.")
+    st.stop()
 
 def setup_services():
     """Set up Google API services using OAuth credentials"""
